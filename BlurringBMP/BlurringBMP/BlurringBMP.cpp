@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <windows.h>
+#include <timeapi.h>
 
 using namespace std;
 
@@ -280,7 +281,7 @@ unsigned stringToProcessorsCount(const string& str)
     return (unsigned)processorsCount;
 }
 
-DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
+DWORD WINAPI threadProc(CONST LPVOID lpParam)
 {
     ThreadData* threadData = (ThreadData*)lpParam;
     
@@ -292,9 +293,9 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
             unsigned sumG = 0;
             unsigned sumB = 0;
             unsigned pixelsCount = 0;
-            for (int di = -6; di <= 6; ++di)
+            for (int di = -10; di <= 10; ++di)
             {
-                for (int dj = -6; dj <= 6; ++dj)
+                for (int dj = -10; dj <= 10; ++dj)
                 {
                     unsigned curI = i + di;
                     unsigned curJ = j + dj;
@@ -324,6 +325,7 @@ void blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, unsign
 
     unsigned threadHeight = fileInfoHeader.biHeight / threadsCount;
     unsigned startingIndex = 0;
+    unsigned affinityMask = (1 << processorsCount) - 1;
     for (unsigned i = 0; i < threadsCount - 1; ++i)
     {
         threadsData[i].width = fileInfoHeader.biWidth;
@@ -332,8 +334,8 @@ void blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, unsign
         threadsData[i].threadHeight = threadHeight;
         threadsData[i].rgbInfo = rgbInfo;
 
-        handles[i] = CreateThread(NULL, 0, &ThreadProc, &threadsData[i], CREATE_SUSPENDED, NULL);
-        SetThreadAffinityMask(handles[i], (1 << processorsCount) - 1);
+        handles[i] = CreateThread(NULL, 0, &threadProc, &threadsData[i], CREATE_SUSPENDED, NULL);
+        SetThreadAffinityMask(handles[i], affinityMask);
         ResumeThread(handles[i]);
 
         startingIndex += threadHeight;
@@ -345,8 +347,8 @@ void blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, unsign
     threadsData[threadsCount - 1].threadHeight = fileInfoHeader.biHeight - startingIndex;
     threadsData[threadsCount - 1].rgbInfo = rgbInfo;
 
-    handles[threadsCount - 1] = CreateThread(NULL, 0, &ThreadProc, &threadsData[threadsCount - 1], CREATE_SUSPENDED, NULL);
-    SetThreadAffinityMask(handles[threadsCount - 1], (1 << processorsCount) - 1);
+    handles[threadsCount - 1] = CreateThread(NULL, 0, &threadProc, &threadsData[threadsCount - 1], CREATE_SUSPENDED, NULL);
+    SetThreadAffinityMask(handles[threadsCount - 1], affinityMask);
     ResumeThread(handles[threadsCount - 1]);
 
     WaitForMultipleObjects(threadsCount, handles, true, INFINITE);
@@ -407,6 +409,8 @@ void writeBmpFile(const string& fileName, RgbQuad** rgbInfo, const BitmapFileHea
 
 int main(int argc, char* argv[])
 {
+    unsigned startTime = timeGetTime();
+
     if (argc < 5)
     {
         cout << "Usage: " << argv[0] << " input_file_name output_file_name threads_count processors_count" << endl;
@@ -442,6 +446,8 @@ int main(int argc, char* argv[])
 
     blurImage(rgbInfo, fileInfoHeader, threadsCount, processorsCount);
     writeBmpFile(argv[2], rgbInfo, fileHeader, fileInfoHeader);
+
+    cout << timeGetTime() - startTime;
 
     return 0;
 }
