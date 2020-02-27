@@ -6,6 +6,8 @@
 
 using namespace std;
 
+uint8_t BLURRING_RADIUS = 6;
+
 struct Ciexyz
 {
     int cieX;
@@ -293,9 +295,9 @@ DWORD WINAPI threadProc(CONST LPVOID lpParam)
             unsigned sumG = 0;
             unsigned sumB = 0;
             unsigned pixelsCount = 0;
-            for (int di = -10; di <= 10; ++di)
+            for (int di = -BLURRING_RADIUS; di <= BLURRING_RADIUS; ++di)
             {
-                for (int dj = -10; dj <= 10; ++dj)
+                for (int dj = -BLURRING_RADIUS; dj <= BLURRING_RADIUS; ++dj)
                 {
                     unsigned curI = i + di;
                     unsigned curJ = j + dj;
