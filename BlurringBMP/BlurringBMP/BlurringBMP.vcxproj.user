@@ -5,11 +5,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>tiger.bmp blurred-tiger.bmp 4 1</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>crop.bmp blurred-crop.bmp 3 1 0 0 0</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>3204716-tiger.bmp blurred-tiger.bmp 4 1</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>crop.bmp blurred-crop.bmp 4 4 0 0 0 0</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
