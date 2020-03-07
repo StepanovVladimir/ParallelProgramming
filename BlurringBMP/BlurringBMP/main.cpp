@@ -7,14 +7,51 @@
 
 using namespace std;
 
-struct ThreadData
+unsigned stringToThreadsCount(const string& str)
 {
-    unsigned width;
-    unsigned height;
-    unsigned startingIndex;
-    unsigned threadHeight;
-    RgbQuad** rgbInfo;
-};
+    int threadsCount = stoi(str);
+    if (threadsCount < 1 || threadsCount > 16)
+    {
+        throw runtime_error("Threads count can be from 1 to 16");
+    }
+    return (unsigned)threadsCount;
+}
+
+unsigned stringToProcessorsCount(const string& str)
+{
+    int processorsCount = stoi(str);
+    if (processorsCount < 1 || processorsCount > 4)
+    {
+        throw runtime_error("Processors count can be from 1 to 4");
+    }
+    return (unsigned)processorsCount;
+}
+
+int* getThreadsPriorities(unsigned threadsCount, char* argv[])
+{
+    int* threadsPriorities = new int[threadsCount];
+    for (unsigned i = 0; i < threadsCount; ++i)
+    {
+        if (string(argv[5 + i]) == "-1")
+        {
+            threadsPriorities[i] = THREAD_PRIORITY_BELOW_NORMAL;
+        }
+        else if (string(argv[5 + i]) == "0")
+        {
+            threadsPriorities[i] = THREAD_PRIORITY_NORMAL;
+        }
+        else if (string(argv[5 + i]) == "1")
+        {
+            threadsPriorities[i] = THREAD_PRIORITY_ABOVE_NORMAL;
+        }
+        else
+        {
+            throw runtime_error("You must specify a priority for each thread\n'-1' is the min priority, '0' is the normal priority, '1' is the max priority");
+        }
+    }
+
+    return threadsPriorities;
+}
 
 template <typename Type>
 void read(istream& strm, Type& result, size_t size)
@@ -199,54 +236,6 @@ RgbQuad** readBmpFile(const string& fileName, BitmapFileHeader& fileHeader, Bitm
 
     return rgbInfo;
 }
-
-unsigned stringToThreadsCount(const string& str)
-{
-    int threadsCount = stoi(str);
-    if (threadsCount < 1 || threadsCount > 16)
-    {
-        throw runtime_error("Threads count can be from 1 to 16");
-    }
-    return (unsigned)threadsCount;
-}
-
-unsigned stringToProcessorsCount(const string& str)
-{
-    int processorsCount = stoi(str);
-    if (processorsCount < 1 || processorsCount > 4)
-    {
-        throw runtime_error("Processors count can be from 1 to 4");
-    }
-    return (unsigned)processorsCount;
-}
-
-int* getThreadsPriorities(unsigned threadsCount, char* argv[])
-{
-    int* threadsPriorities = new int[threadsCount];
-    for (unsigned i = 0; i < threadsCount; ++i)
-    {
-        if (string(argv[5 + i]) == "-1")
-        {
-            threadsPriorities[i] = THREAD_PRIORITY_BELOW_NORMAL;
-        }
-        else if (string(argv[5 + i]) == "0")
-        {
-            threadsPriorities[i] = THREAD_PRIORITY_NORMAL;
-        }
-        else if (string(argv[5 + i]) == "1")
-        {
-            threadsPriorities[i] = THREAD_PRIORITY_ABOVE_NORMAL;
-        }
-        else
-        {
-            throw runtime_error("You must specify a priority for each thread\n'-1' is the min priority, '0' is the normal priority, '1' is the max priority");
-        }
-    }
-
-    return threadsPriorities;
-}
-
-
 
 void writeBmpFile(const string& fileName, RgbQuad** rgbInfo, const BitmapFileHeader& fileHeader, const BitmapInfoHeader& fileInfoHeader)
 {
