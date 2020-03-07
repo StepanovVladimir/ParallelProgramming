@@ -25,7 +25,7 @@ DWORD WINAPI threadProc(CONST LPVOID lpParam)
 {
     ThreadData* threadData = (ThreadData*)lpParam;
     ofstream outFile(to_string(threadData->threadNumber) + ".txt");
-
+    unsigned time = 0;
     for (unsigned i = threadData->startingIndex; i < threadData->startingIndex + threadData->height; ++i)
     {
         for (unsigned j = 0; j < _width; ++j)
@@ -54,7 +54,13 @@ DWORD WINAPI threadProc(CONST LPVOID lpParam)
             _blurredRgbInfo[i][j].rgbGreen = sumG / pixelsCount;
             _blurredRgbInfo[i][j].rgbBlue = sumB / pixelsCount;
 
-            outFile << timeGetTime() - _startTime << endl;
+            unsigned curTime = timeGetTime() - _startTime;
+            if (curTime > time)
+            {
+                outFile << curTime << endl;
+                time = curTime;
+            }
+            
         }
     }
 
