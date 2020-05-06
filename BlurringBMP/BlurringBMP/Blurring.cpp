@@ -1,6 +1,6 @@
 #include "Blurring.h"
+#include "LogFileWriter.h"
 #include <windows.h>
-#include <fstream>
 #include <string>
 #include <timeapi.h>
 
@@ -12,7 +12,6 @@ struct ThreadData
 {
     unsigned startingIndex;
     unsigned height;
-    unsigned threadNumber;
 };
 
 unsigned _width;
@@ -20,12 +19,21 @@ unsigned _height;
 RgbQuad** _initialRgbInfo;
 RgbQuad** _blurredRgbInfo;
 unsigned _startTime;
+CRITICAL_SECTION _criticalSection;
+LogBuffer<unsigned> _logBuffer;
+LogFileWriter<unsigned> _writer;
+
+DWORD WINAPI logSizeMonitoringThread(LPVOID lpParam)
+{
+    LogBuffer<unsigned>* tmpBuffer = (LogBuffer<unsigned>*)lpParam;
+    _writer.write(*tmpBuffer);
+    delete tmpBuffer;
+    ExitThread(0);
+}
 
 DWORD WINAPI threadProc(CONST LPVOID lpParam)
 {
     ThreadData* threadData = (ThreadData*)lpParam;
-    ofstream outFile(to_string(threadData->threadNumber) + ".txt");
-    unsigned time = 0;
     for (unsigned i = threadData->startingIndex; i < threadData->startingIndex + threadData->height; ++i)
     {
         for (unsigned j = 0; j < _width; ++j)
@@ -54,13 +62,16 @@ DWORD WINAPI threadProc(CONST LPVOID lpParam)
             _blurredRgbInfo[i][j].rgbGreen = sumG / pixelsCount;
             _blurredRgbInfo[i][j].rgbBlue = sumB / pixelsCount;
 
-            unsigned curTime = timeGetTime() - _startTime;
-            if (curTime > time)
+            _logBuffer.Log(timeGetTime() - _startTime);
+
+            EnterCriticalSection(&_criticalSection);
+            if (_logBuffer.GetSize() >= 50000)
             {
-                outFile << curTime << endl;
-                time = curTime;
+                LogBuffer<unsigned>* tmpBuffer = new LogBuffer<unsigned>(move(_logBuffer));
+                HANDLE handle = CreateThread(NULL, 0, &logSizeMonitoringThread, tmpBuffer, CREATE_SUSPENDED, NULL);
+                ResumeThread(handle);
             }
-            
+            LeaveCriticalSection(&_criticalSection);
         }
     }
 
@@ -69,6 +80,11 @@ DWORD WINAPI threadProc(CONST LPVOID lpParam)
 
 RgbQuad** blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, unsigned threadsCount, unsigned processorsCount, int* threadsPriorities, unsigned startTime)
 {
+    if (!InitializeCriticalSectionAndSpinCount(&_criticalSection, 0x00000400))
+    {
+        throw runtime_error("Failed to initialize critical section");
+    }
+
     _width = fileInfoHeader.biWidth;
     _height = fileInfoHeader.biHeight;
     _initialRgbInfo = rgbInfo;
@@ -78,6 +94,7 @@ RgbQuad** blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, u
         _blurredRgbInfo[i] = new RgbQuad[_width];
     }
     _startTime = startTime;
+    _logBuffer.AddCriticalSection(&_criticalSection);
 
     HANDLE* handles = new HANDLE[threadsCount];
     ThreadData* threadsData = new ThreadData[threadsCount];
@@ -89,7 +106,6 @@ RgbQuad** blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, u
     {
         threadsData[i].startingIndex = startingIndex;
         threadsData[i].height = threadHeight;
-        threadsData[i].threadNumber = i + 1;
 
         handles[i] = CreateThread(NULL, 0, &threadProc, &threadsData[i], CREATE_SUSPENDED, NULL);
         SetThreadAffinityMask(handles[i], affinityMask);
@@ -101,7 +117,6 @@ RgbQuad** blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, u
 
     threadsData[threadsCount - 1].startingIndex = startingIndex;
     threadsData[threadsCount - 1].height = fileInfoHeader.biHeight - startingIndex;
-    threadsData[threadsCount - 1].threadNumber = threadsCount;
 
     handles[threadsCount - 1] = CreateThread(NULL, 0, &threadProc, &threadsData[threadsCount - 1], CREATE_SUSPENDED, NULL);
     SetThreadAffinityMask(handles[threadsCount - 1], affinityMask);
@@ -109,6 +124,12 @@ RgbQuad** blurImage(RgbQuad** rgbInfo, const BitmapInfoHeader& fileInfoHeader, u
     ResumeThread(handles[threadsCount - 1]);
 
     WaitForMultipleObjects(threadsCount, handles, true, INFINITE);
+
+    DeleteCriticalSection(&_criticalSection);
+
+    LogBuffer<unsigned>* tmpBuffer = new LogBuffer<unsigned>(move(_logBuffer));
+    HANDLE handle = CreateThread(NULL, 0, &logSizeMonitoringThread, tmpBuffer, CREATE_SUSPENDED, NULL);
+    ResumeThread(handle);
 
     return _blurredRgbInfo;
 }
